@@ -15,7 +15,6 @@ jobs:
     timeout-minutes: 30
 
     env:
-      # set non-secret defaults here; override with repo Secrets if needed
       RANK_MIN: "40"
       RANK_MAX: "100"
       API_RATE_LIMIT_SECONDS: "0.6"
