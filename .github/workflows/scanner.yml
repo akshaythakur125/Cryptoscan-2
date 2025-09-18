@@ -2,8 +2,8 @@ name: 3-hour Crypto Scanner
 
 on:
   schedule:
-    - cron: "0 */3 * * *"  # every 3 hours
-  workflow_dispatch:      # allow manual runs
+    - cron: "0 */3 * * *"   # every 3 hours
+  workflow_dispatch:        # allows manual run
 
 concurrency:
   group: crypto-scanner
@@ -13,8 +13,9 @@ jobs:
   run-scanner:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
     env:
-      # Put real values into repo Settings -> Secrets -> Actions
+      # Optional secrets (set these under Settings → Secrets → Actions if you use them)
       SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
       SMTP_PORT: ${{ secrets.SMTP_PORT }}
       SMTP_USER: ${{ secrets.SMTP_USER }}
@@ -39,6 +40,7 @@ jobs:
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           else
+            # minimal fallback packages (adjust to your script)
             pip install requests pandas python-dotenv
           fi
 
