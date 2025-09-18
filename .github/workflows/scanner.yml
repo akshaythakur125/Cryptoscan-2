@@ -1,10 +1,9 @@
 name: 3-hour Crypto Scanner
 
-# Run on a schedule and allow manual runs
 on:
   schedule:
-    - cron: "0 */3 * * *"   # every 3 hours at top of each 3rd hour
-  workflow_dispatch:        # allow manual run
+    - cron: "0 */3 * * *"   # every 3 hours
+  workflow_dispatch:        # allow manual runs from the Actions UI
 
 concurrency:
   group: crypto-scanner
@@ -14,27 +13,23 @@ jobs:
   run-scanner:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
-    # Expose secrets and defaults as env variables for the job
     env:
-      # SMTP / email (set these in repo Settings -> Secrets)
+      # Optional config: set these as repo secrets (recommended) or leave defaults here
+      RANK_MIN: "40"
+      RANK_MAX: "100"
+      API_RATE_LIMIT_SECONDS: "0.6"
+      PRICE_CHANGE_24H_THRESHOLD: "8.0"
+      VOLUME_FACTOR: "1.5"
+      # SMTP/EMAIL values should be supplied as repository secrets (see README below)
       SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
       SMTP_PORT: ${{ secrets.SMTP_PORT }}
       SMTP_USER: ${{ secrets.SMTP_USER }}
       SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
       EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
 
-      # Scanner tuning (set as secrets or repo vars if you want)
-      RANK_MIN: ${{ secrets.RANK_MIN || '40' }}
-      RANK_MAX: ${{ secrets.RANK_MAX || '100' }}
-      TOP_N: ${{ secrets.TOP_N || '250' }}
-      API_RATE_LIMIT_SECONDS: ${{ secrets.API_RATE_LIMIT_SECONDS || '0.6' }}
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
@@ -47,13 +42,11 @@ jobs:
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           else
-            # minimal fallback (adjust as needed)
-            pip install requests pandas numpy python-dotenv
-            # install ccxt only if you intend funding-rate checks
-            # pip install ccxt
+            # Minimal fallback - adjust to your script's needs
+            pip install requests pandas python-dotenv
           fi
 
-      - name: Debug: show repo files (confirm scanner present)
+      - name: Debug: show repo root & files (confirm scanner present)
         run: |
           echo "WORKDIR: $(pwd)"
           ls -la
@@ -69,27 +62,32 @@ jobs:
 
           while [ $attempts -lt $max_attempts ]; do
             attempts=$((attempts + 1))
-            echo "Attempt $attempts / $max_attempts - running scanner_github.py"
-            # run from repo root (checkout step puts source at working dir)
-            if [ ! -f "./scanner_github.py" ]; then
-              echo "ERROR: scanner_github.py not found at repo root. Aborting."
-              exit 2
-            fi
-
-            python ./scanner_github.py && exit_code=0 && break || exit_code=$?
-
-            echo "scanner_github.py exited with code $exit_code"
-            if [ $attempts -lt $max_attempts ]; then
-              sleep_seconds=$((attempts * 10))
-              echo "Sleeping $sleep_seconds seconds before retry..."
-              sleep $sleep_seconds
+            echo "Attempt $attempts / $max_attempts — running scanner_github.py"
+            if python scanner_github.py; then
+              echo "scanner_github.py finished successfully"
+              exit_code=0
+              break
+            else
+              rc=$?
+              echo "scanner_github.py exited with code $rc"
+              exit_code=$rc
+              if [ $attempts -lt $max_attempts ]; then
+                # exponential backoff: 10s, 20s, ...
+                sleep_seconds=$((attempts * 10))
+                echo "Sleeping ${sleep_seconds}s before retry..."
+                sleep $sleep_seconds
+              fi
             fi
           done
 
           if [ $exit_code -ne 0 ]; then
-            echo "All attempts failed"
+            echo "All attempts failed (exit code $exit_code)."
             exit $exit_code
           fi
 
-      - name: Finish
-        run: echo "Scanner run completed (or failed earlier)."
+      - name: Upload scan results (if any)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-results
+          path: results/*.csv
