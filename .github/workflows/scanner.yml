@@ -2,8 +2,8 @@ name: 3-hour Crypto Scanner
 
 on:
   schedule:
-    - cron: "0 */3 * * *"    # runs every 3 hours
-  workflow_dispatch:         # allows manual run from Actions tab
+    - cron: "0 */3 * * *"    # every 3 hours
+  workflow_dispatch:
 
 concurrency:
   group: crypto-scanner
@@ -15,12 +15,14 @@ jobs:
     timeout-minutes: 30
 
     env:
+      API_RATE_LIMIT_SECONDS: "0.6"
       RANK_MIN: "40"
       RANK_MAX: "100"
-      API_RATE_LIMIT_SECONDS: "0.6"
       SMTP_USER: ${{ secrets.SMTP_USER }}
       SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
       EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
     steps:
       - name: Checkout repository
@@ -29,7 +31,7 @@ jobs:
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Install dependencies (if requirements.txt present; fallback)
         run: |
@@ -37,6 +39,7 @@ jobs:
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           else
+            # minimal fallback packages (adjust to your script)
             pip install requests pandas python-dotenv
           fi
 
