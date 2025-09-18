@@ -2,8 +2,8 @@ name: 3-hour Crypto Scanner
 
 on:
   schedule:
-    - cron: "0 */3 * * *"   # every 3 hours
-  workflow_dispatch:
+    - cron: "0 */3 * * *"    # runs every 3 hours
+  workflow_dispatch:         # allows manual run from Actions tab
 
 concurrency:
   group: crypto-scanner
@@ -15,6 +15,7 @@ jobs:
     timeout-minutes: 30
 
     env:
+      # set non-secret defaults here; override with repo Secrets if needed
       RANK_MIN: "40"
       RANK_MAX: "100"
       API_RATE_LIMIT_SECONDS: "0.6"
